@@ -27,6 +27,12 @@ functions:
       - http:
           path: notes
           method: post
+  get:
+    handler: bin/get
+    events:
+      - http:
+          path: notes/{id}
+          method: get
 
 resources:
   Resources:
