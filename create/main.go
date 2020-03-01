@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -22,15 +23,16 @@ var dbCli *dynamodb.Client
 type Request events.APIGatewayProxyRequest
 type Response events.APIGatewayProxyResponse
 
-//TODO validate
+//TODO validate body
 //TODO create human friendly urls
 //TODO think about encoding the note to base64 because of chinese characters
 //TODO button for nice url copy
+//TODO create page if note expired
 
 type note struct {
-	Text     string `json:"text"`
-	Password string `json:"password"`
-	TTL      int64  `json:"ttl"`
+	Text            string `json:"text"`
+	Password        string `json:"password"`
+	LifeTimeSeconds int64  `json:"lifeTimeSeconds"`
 }
 
 type secureNote struct {
@@ -59,7 +61,7 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 		}, nil
 	}
 
-	securedNote := secure(n)
+	securedNote := newSecureNote(n)
 	item, err := dynamodbattribute.MarshalMap(securedNote)
 	if err != nil {
 		log.Print(err)
@@ -88,12 +90,15 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	return resp, nil
 }
 
-func secure(n note) secureNote {
+func newSecureNote(n note) secureNote {
+	now := time.Now().UTC()
+	ttl := now.Add(time.Duration(n.LifeTimeSeconds) * time.Second).Unix()
+
 	return secureNote{
 		ID:   uuid.New().String(),
 		Text: n.Text,
 		Hash: hashAndSalt([]byte(n.Password)),
-		TTL:  n.TTL,
+		TTL:  ttl,
 	}
 }
 
