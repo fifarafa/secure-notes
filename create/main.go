@@ -81,10 +81,28 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 		}, nil
 	}
 
+	type ResponseId struct {
+		ID string `json:"id"`
+	}
+
+	data, err := json.Marshal(&ResponseId{ID: securedNote.ID})
+	if err != nil {
+		return Response{
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
+			StatusCode: http.StatusInternalServerError,
+		}, nil
+	}
+
 	resp := Response{
 		StatusCode: http.StatusCreated,
-		//TODO jsonify
-		Body: securedNote.ID,
+		Body:       string(data),
+		Headers: map[string]string{
+			"Access-Control-Allow-Origin":      "*",
+			"Access-Control-Allow-Credentials": "true",
+		},
 	}
 
 	return resp, nil
