@@ -4,6 +4,8 @@ frameworkVersion: '>=1.28.0 <2.0.0'
 provider:
   name: aws
   runtime: go1.x
+  logs:
+    restApi: true
   environment:
     NOTES_TABLE: notes
   iamRoleStatements:
