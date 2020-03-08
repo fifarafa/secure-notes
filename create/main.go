@@ -28,6 +28,7 @@ type Response events.APIGatewayProxyResponse
 //TODO think about encoding the note to base64 because of chinese characters
 //TODO button for nice url copy
 //TODO create page if note expired
+//TODO destroy note with button after unlock
 
 type note struct {
 	Text            string `json:"text"`
@@ -57,6 +58,10 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	if err := json.Unmarshal([]byte(req.Body), &n); err != nil {
 		log.Print(err)
 		return Response{
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
 			StatusCode: http.StatusBadRequest,
 		}, nil
 	}
@@ -66,6 +71,10 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	if err != nil {
 		log.Print(err)
 		return Response{
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
 			StatusCode: http.StatusInternalServerError,
 		}, nil
 	}
@@ -77,6 +86,10 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	if _, err := dbCli.PutItemRequest(&input).Send(ctx); err != nil {
 		log.Print(err)
 		return Response{
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
 			StatusCode: http.StatusInternalServerError,
 		}, nil
 	}

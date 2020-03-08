@@ -60,6 +60,10 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 		log.Print(err)
 		return Response{
 			StatusCode: http.StatusInternalServerError,
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
 		}, nil
 	}
 
@@ -67,6 +71,10 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 		log.Print("empty item")
 		return Response{
 			StatusCode: http.StatusNotFound,
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
 		}, nil
 	}
 
@@ -75,6 +83,10 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 		log.Print(err)
 		return Response{
 			StatusCode: http.StatusInternalServerError,
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
 		}, err
 	}
 
@@ -84,6 +96,10 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	if ok := comparePasswords(secureNote.Hash, []byte(plainPwd)); !ok {
 		return Response{
 			StatusCode: http.StatusUnauthorized,
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
 		}, err
 	}
 
@@ -98,12 +114,20 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 		log.Print(err)
 		return Response{
 			StatusCode: http.StatusInternalServerError,
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
 		}, nil
 	}
 
 	resp := Response{
 		StatusCode: http.StatusOK,
 		Body:       string(data),
+		Headers: map[string]string{
+			"Access-Control-Allow-Origin":      "*",
+			"Access-Control-Allow-Credentials": "true",
+		},
 	}
 
 	return resp, nil
