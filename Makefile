@@ -8,7 +8,10 @@ build: gomodgen
 clean:
 	rm -rf ./bin ./vendor Gopkg.lock
 
-deploy: clean build
+test:
+	go test ./... -v
+
+deploy: clean build test
 	sls deploy --verbose
 
 gomodgen:
