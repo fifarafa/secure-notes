@@ -16,21 +16,25 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
+	"github.com/repos/secure-notes/internal/web"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var dbCli *dynamodb.Client
+var (
+	dbCli      *dynamodb.Client
+	middleware *web.Middleware
+)
 
-type Request events.APIGatewayProxyRequest
-type Response events.APIGatewayProxyResponse
+type (
+	Request  = events.APIGatewayProxyRequest
+	Response = events.APIGatewayProxyResponse
+)
 
 //TODO validate body
 //TODO create human friendly urls
 //TODO create page if note expired???
 //TODO destroy note tick after first read IDEA
-
-//TODO divide into cmd
-//TODO create internal
 
 type note struct {
 	Text            string `json:"text"`
@@ -52,44 +56,46 @@ func init() {
 	}
 
 	dbCli = dynamodb.New(cfg)
+
+	logger, err := zap.NewProductionConfig().Build()
+	if err != nil {
+		panic("cannot initialize logger")
+	}
+
+	middleware = &web.Middleware{
+		Logger: logger.Sugar(),
+	}
 }
 
-// Handler is our lambda handler invoked by the `lambda.Start` function call
 func Handler(ctx context.Context, req Request) (Response, error) {
 	var n note
 	if err := json.Unmarshal([]byte(req.Body), &n); err != nil {
-		log.Print(err)
 		return Response{
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
 			StatusCode: http.StatusBadRequest,
-		}, nil
+		}, err
 	}
 
-	securedNote, err := newSecureNote(n)
+	secNote, err := newSecureNote(n)
 	if err != nil {
-		log.Print(err)
-		return Response{
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-			StatusCode: http.StatusInternalServerError,
-		}, nil
+		return web.InternalServerError(), fmt.Errorf("new secure note: %w", err)
 	}
 
-	item, err := dynamodbattribute.MarshalMap(securedNote)
+	if err := save(ctx, secNote); err != nil {
+		return web.InternalServerError(), fmt.Errorf("save secured note: %w", err)
+	}
+
+	resp, err := createResponse(secNote.ID)
 	if err != nil {
-		log.Print(err)
-		return Response{
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-			StatusCode: http.StatusInternalServerError,
-		}, nil
+		return web.InternalServerError(), fmt.Errorf("create response: %w", err)
+	}
+
+	return resp, nil
+}
+
+func save(ctx context.Context, sn secureNote) error {
+	item, err := dynamodbattribute.MarshalMap(sn)
+	if err != nil {
+		return fmt.Errorf("marshal note to db map: %w", err)
 	}
 
 	input := dynamodb.PutItemInput{
@@ -98,56 +104,43 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	}
 	if _, err := dbCli.PutItemRequest(&input).Send(ctx); err != nil {
 		log.Print(err)
-		return Response{
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-			StatusCode: http.StatusInternalServerError,
-		}, nil
+		return fmt.Errorf("put item in db: %w", err)
 	}
 
-	type ResponseId struct {
-		ID string `json:"id"`
-	}
-
-	data, err := json.Marshal(&ResponseId{ID: securedNote.ID})
-	if err != nil {
-		return Response{
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-			StatusCode: http.StatusInternalServerError,
-		}, nil
-	}
-
-	resp := Response{
-		StatusCode: http.StatusCreated,
-		Body:       string(data),
-		Headers: map[string]string{
-			"Access-Control-Allow-Origin":      "*",
-			"Access-Control-Allow-Credentials": "true",
-		},
-	}
-
-	return resp, nil
+	return nil
 }
 
-func newSecureNote(n note) (*secureNote, error) {
+func newSecureNote(n note) (secureNote, error) {
 	now := time.Now().UTC()
 	ttl := now.Add(time.Duration(n.LifeTimeSeconds) * time.Second).Unix()
 	saltedHash, err := generateHashWithSalt([]byte(n.Password))
 	if err != nil {
-		return nil, fmt.Errorf("generate hash with salt: %w", err)
+		return secureNote{}, fmt.Errorf("generate hash with salt: %w", err)
 	}
 
-	return &secureNote{
+	return secureNote{
 		ID:   uuid.New().String(),
 		Text: n.Text,
 		Hash: saltedHash,
 		TTL:  ttl,
 	}, nil
+}
+
+func createResponse(noteID string) (Response, error) {
+	type ResponseId struct {
+		ID string `json:"id"`
+	}
+
+	responseBytes, err := json.Marshal(&ResponseId{ID: noteID})
+	if err != nil {
+		return Response{}, fmt.Errorf("json marshal response: %w", err)
+	}
+
+	resp := Response{
+		StatusCode: http.StatusCreated,
+		Body:       string(responseBytes),
+	}
+	return resp, nil
 }
 
 func generateHashWithSalt(pwd []byte) (string, error) {
@@ -160,5 +153,5 @@ func generateHashWithSalt(pwd []byte) (string, error) {
 }
 
 func main() {
-	lambda.Start(Handler)
+	lambda.Start(middleware.WrapWithCorsAndLogging(Handler))
 }
