@@ -3,18 +3,17 @@ package web
 import (
 	"context"
 
-	"github.com/aws/aws-lambda-go/events"
 	"go.uber.org/zap"
 )
 
-type Handler func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error)
+type Handler func(ctx context.Context, req Request) (Response, error)
 
 type Middleware struct {
 	Logger *zap.SugaredLogger
 }
 
-func (m *Middleware) WrapWithCorsAndLogging(h Handler) func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	return func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func (m *Middleware) WrapWithCorsAndLogging(h Handler) func(ctx context.Context, req Request) (Response, error) {
+	return func(ctx context.Context, req Request) (Response, error) {
 		resp, err := h(ctx, req)
 		addCorsHeaders(resp)
 
@@ -29,8 +28,8 @@ func (m *Middleware) WrapWithCorsAndLogging(h Handler) func(ctx context.Context,
 	}
 }
 
-func addCorsHeaders(original events.APIGatewayProxyResponse) events.APIGatewayProxyResponse {
-	return events.APIGatewayProxyResponse{
+func addCorsHeaders(original Response) Response {
+	return Response{
 		StatusCode: original.StatusCode,
 		Headers: map[string]string{
 			"Access-Control-Allow-Origin":      "*",

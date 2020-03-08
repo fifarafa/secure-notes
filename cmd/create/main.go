@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
@@ -24,11 +23,6 @@ import (
 var (
 	dbCli      *dynamodb.Client
 	middleware *web.Middleware
-)
-
-type (
-	Request  = events.APIGatewayProxyRequest
-	Response = events.APIGatewayProxyResponse
 )
 
 //TODO validate body
@@ -61,19 +55,20 @@ func init() {
 	if err != nil {
 		panic("cannot initialize logger")
 	}
-
 	middleware = &web.Middleware{
 		Logger: logger.Sugar(),
 	}
 }
 
-func Handler(ctx context.Context, req Request) (Response, error) {
+func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 	var n note
 	if err := json.Unmarshal([]byte(req.Body), &n); err != nil {
-		return Response{
+		return web.Response{
 			StatusCode: http.StatusBadRequest,
 		}, err
 	}
+
+	//TODO validate body
 
 	secNote, err := newSecureNote(n)
 	if err != nil {
@@ -126,17 +121,17 @@ func newSecureNote(n note) (secureNote, error) {
 	}, nil
 }
 
-func createResponse(noteID string) (Response, error) {
+func createResponse(noteID string) (web.Response, error) {
 	type ResponseId struct {
 		ID string `json:"id"`
 	}
 
 	responseBytes, err := json.Marshal(&ResponseId{ID: noteID})
 	if err != nil {
-		return Response{}, fmt.Errorf("json marshal response: %w", err)
+		return web.Response{}, fmt.Errorf("json marshal response: %w", err)
 	}
 
-	resp := Response{
+	resp := web.Response{
 		StatusCode: http.StatusCreated,
 		Body:       string(responseBytes),
 	}

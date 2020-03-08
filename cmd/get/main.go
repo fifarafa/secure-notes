@@ -7,19 +7,20 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbattribute"
+	"github.com/repos/secure-notes/internal/web"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var dbCli *dynamodb.Client
-
-type Request events.APIGatewayProxyRequest
-type Response events.APIGatewayProxyResponse
+var (
+	dbCli      *dynamodb.Client
+	middleware *web.Middleware
+)
 
 type note struct {
 	ID   string `json:"id"`
@@ -41,9 +42,17 @@ func init() {
 	}
 
 	dbCli = dynamodb.New(cfg)
+
+	logger, err := zap.NewProductionConfig().Build()
+	if err != nil {
+		panic("cannot initialize logger")
+	}
+	middleware = &web.Middleware{
+		Logger: logger.Sugar(),
+	}
 }
 
-func Handler(ctx context.Context, req Request) (Response, error) {
+func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 	noteID := req.PathParameters["id"]
 
 	input := dynamodb.GetItemInput{
@@ -58,7 +67,7 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	item, err := dbCli.GetItemRequest(&input).Send(ctx)
 	if err != nil {
 		log.Print(err)
-		return Response{
+		return web.Response{
 			StatusCode: http.StatusInternalServerError,
 			Headers: map[string]string{
 				"Access-Control-Allow-Origin":      "*",
@@ -69,7 +78,7 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 
 	if notFound := len(item.Item) == 0; notFound {
 		log.Print("empty item")
-		return Response{
+		return web.Response{
 			StatusCode: http.StatusNotFound,
 			Headers: map[string]string{
 				"Access-Control-Allow-Origin":      "*",
@@ -81,7 +90,7 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	var secureNote secureNote
 	if err := dynamodbattribute.UnmarshalMap(item.Item, &secureNote); err != nil {
 		log.Print(err)
-		return Response{
+		return web.Response{
 			StatusCode: http.StatusInternalServerError,
 			Headers: map[string]string{
 				"Access-Control-Allow-Origin":      "*",
@@ -96,7 +105,7 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	ok, err := comparePasswords(secureNote.Hash, []byte(plainPwd))
 	if err != nil {
 		log.Print(err)
-		return Response{
+		return web.Response{
 			StatusCode: http.StatusInternalServerError,
 			Headers: map[string]string{
 				"Access-Control-Allow-Origin":      "*",
@@ -106,7 +115,7 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	}
 
 	if !ok {
-		return Response{
+		return web.Response{
 			StatusCode: http.StatusUnauthorized,
 			Headers: map[string]string{
 				"Access-Control-Allow-Origin":      "*",
@@ -124,7 +133,7 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	data, err := json.Marshal(n)
 	if err != nil {
 		log.Print(err)
-		return Response{
+		return web.Response{
 			StatusCode: http.StatusInternalServerError,
 			Headers: map[string]string{
 				"Access-Control-Allow-Origin":      "*",
@@ -133,7 +142,7 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 		}, nil
 	}
 
-	resp := Response{
+	resp := web.Response{
 		StatusCode: http.StatusOK,
 		Body:       string(data),
 		Headers: map[string]string{
@@ -156,5 +165,5 @@ func comparePasswords(hashedPwd string, plainPwd []byte) (bool, error) {
 }
 
 func main() {
-	lambda.Start(Handler)
+	lambda.Start(middleware.WrapWithCorsAndLogging(Handler))
 }
