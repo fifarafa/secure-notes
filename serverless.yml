@@ -27,12 +27,17 @@ functions:
       - http:
           path: notes
           method: post
+          cors: true
   get:
     handler: bin/get
     events:
       - http:
           path: notes/{id}
           method: get
+          cors:
+            origin: '*'
+            headers:
+              - note-secret
 
 resources:
   Resources:
