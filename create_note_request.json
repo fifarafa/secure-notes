@@ -12,7 +12,8 @@
       "type": "string"
     },
     "lifeTimeSeconds": {
-      "type": "number"
+      "type": "number",
+      "minimum": 1
     },
     "password": {
       "type": "string"
