@@ -25,10 +25,11 @@ type Response events.APIGatewayProxyResponse
 
 //TODO validate body
 //TODO create human friendly urls
-//TODO think about encoding the note to base64 because of chinese characters
-//TODO button for nice url copy
-//TODO create page if note expired
-//TODO destroy note with button after unlock
+//TODO create page if note expired???
+//TODO destroy note tick after first read IDEA
+
+//TODO divide into cmd
+//TODO create internal
 
 type note struct {
 	Text            string `json:"text"`
