@@ -15,7 +15,7 @@ type Middleware struct {
 func (m *Middleware) WrapWithCorsAndLogging(h Handler) func(ctx context.Context, req Request) (Response, error) {
 	return func(ctx context.Context, req Request) (Response, error) {
 		resp, err := h(ctx, req)
-		addCorsHeaders(resp)
+		resp = addCorsHeaders(resp)
 
 		if err != nil {
 			m.Logger.Errorw("failed to handle request successfully",

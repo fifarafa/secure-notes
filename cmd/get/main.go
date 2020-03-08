@@ -71,12 +71,8 @@ func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 		}
 	}
 
-	//TODO validate if exists
-	plainPwd := req.Headers["note-secret"]
-	ok, err := comparePasswords(secNote.Hash, []byte(plainPwd))
-	if err != nil {
-		return web.InternalServerError(), fmt.Errorf("compare password with salted hash: %w", err)
-	}
+	plainPwd := req.Headers["password"]
+	ok := comparePasswords(secNote.Hash, []byte(plainPwd))
 	if !ok {
 		return web.Response{
 			StatusCode: http.StatusUnauthorized,
@@ -137,14 +133,14 @@ func get(ctx context.Context, dbCli *dynamodb.Client, noteID string) (secureNote
 	return secNote, nil
 }
 
-func comparePasswords(hashedPwd string, plainPwd []byte) (bool, error) {
+func comparePasswords(hashedPwd string, plainPwd []byte) bool {
 	byteHash := []byte(hashedPwd)
 	err := bcrypt.CompareHashAndPassword(byteHash, plainPwd)
 	if err != nil {
-		return false, errors.New("bcrypt compare hash with password")
+		return false
 	}
 
-	return true, nil
+	return true
 }
 
 func main() {

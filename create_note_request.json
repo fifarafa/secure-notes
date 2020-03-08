@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Create Note Schema",
+  "type": "object",
+  "required": [
+    "text",
+    "lifeTimeSeconds",
+    "password"
+  ],
+  "properties": {
+    "text": {
+      "type": "string"
+    },
+    "lifeTimeSeconds": {
+      "type": "number"
+    },
+    "password": {
+      "type": "string"
+    }
+  }
+}

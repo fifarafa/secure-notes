@@ -25,7 +25,6 @@ var (
 	middleware *web.Middleware
 )
 
-//TODO validate body
 //TODO create human friendly urls
 //TODO create page if note expired???
 //TODO destroy note tick after first read IDEA
@@ -67,8 +66,6 @@ func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 			StatusCode: http.StatusBadRequest,
 		}, err
 	}
-
-	//TODO validate body
 
 	secNote, err := newSecureNote(n)
 	if err != nil {

@@ -29,6 +29,9 @@ functions:
       - http:
           path: notes
           method: post
+          request:
+            schema:
+              application/json: ${file(create_note_request.json)}
           cors: true
   get:
     handler: bin/get
@@ -36,10 +39,14 @@ functions:
       - http:
           path: notes/{id}
           method: get
+          request:
+            parameters:
+              headers:
+                password: true
           cors:
             origin: '*'
             headers:
-              - note-secret
+              - password
 
 resources:
   Resources:
