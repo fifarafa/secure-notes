@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -36,6 +35,10 @@ type secureNote struct {
 	TTL  int64  `dynamodbav:"ttl"`
 }
 
+var (
+	errNoteNotFound = errors.New("note not found")
+)
+
 func init() {
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
@@ -56,6 +59,58 @@ func init() {
 func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 	noteID := req.PathParameters["id"]
 
+	secNote, err := get(ctx, dbCli, noteID)
+	if err != nil {
+		switch err {
+		case errNoteNotFound:
+			return web.Response{
+				StatusCode: http.StatusNotFound,
+			}, fmt.Errorf("get note from db: %w", err)
+		default:
+			return web.InternalServerError(), fmt.Errorf("get note from db: %w", err)
+		}
+	}
+
+	//TODO validate if exists
+	plainPwd := req.Headers["note-secret"]
+	ok, err := comparePasswords(secNote.Hash, []byte(plainPwd))
+	if err != nil {
+		return web.InternalServerError(), fmt.Errorf("compare password with salted hash: %w", err)
+	}
+	if !ok {
+		return web.Response{
+			StatusCode: http.StatusUnauthorized,
+		}, fmt.Errorf("wrong password")
+	}
+
+	resp, err := createResponse(secNote, err)
+	if err != nil {
+		return web.InternalServerError(), fmt.Errorf("create response: %w", err)
+	}
+
+	return resp, nil
+}
+
+func createResponse(secNote secureNote, err error) (web.Response, error) {
+	n := note{
+		ID:   secNote.ID,
+		Text: secNote.Text,
+		TTL:  secNote.TTL,
+	}
+
+	noteBytes, err := json.Marshal(n)
+	if err != nil {
+		return web.Response{}, fmt.Errorf("json marshal response: %w", err)
+	}
+
+	resp := web.Response{
+		StatusCode: http.StatusOK,
+		Body:       string(noteBytes),
+	}
+	return resp, nil
+}
+
+func get(ctx context.Context, dbCli *dynamodb.Client, noteID string) (secureNote, error) {
 	input := dynamodb.GetItemInput{
 		Key: map[string]dynamodb.AttributeValue{
 			"pk": {
@@ -67,52 +122,19 @@ func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 
 	item, err := dbCli.GetItemRequest(&input).Send(ctx)
 	if err != nil {
-		return web.InternalServerError(), fmt.Errorf("get item from db: %w", err)
+		return secureNote{}, fmt.Errorf("get item from db: %w", err)
 	}
 
 	if notFound := len(item.Item) == 0; notFound {
-		return web.Response{
-			StatusCode: http.StatusNotFound,
-		}, fmt.Errorf("note not found in db")
+		return secureNote{}, errNoteNotFound
 	}
 
-	var secureNote secureNote
-	if err := dynamodbattribute.UnmarshalMap(item.Item, &secureNote); err != nil {
-		log.Print(err)
-		return web.InternalServerError(), fmt.Errorf("unmarshal note from db map: %w", err)
+	var secNote secureNote
+	if err := dynamodbattribute.UnmarshalMap(item.Item, &secNote); err != nil {
+		return secureNote{}, fmt.Errorf("unmarshal note from db map: %w", err)
 	}
 
-	//TODO validate if exists
-	plainPwd := req.Headers["note-secret"]
-
-	ok, err := comparePasswords(secureNote.Hash, []byte(plainPwd))
-	if err != nil {
-		return web.InternalServerError(), fmt.Errorf("compare password with salted hash: %w", err)
-	}
-
-	if !ok {
-		return web.Response{
-			StatusCode: http.StatusUnauthorized,
-		}, fmt.Errorf("wrong password")
-	}
-
-	n := note{
-		ID:   secureNote.ID,
-		Text: secureNote.Text,
-		TTL:  secureNote.TTL,
-	}
-
-	noteBytes, err := json.Marshal(n)
-	if err != nil {
-		return web.InternalServerError(), fmt.Errorf("json marshal response: %w", err)
-	}
-
-	resp := web.Response{
-		StatusCode: http.StatusOK,
-		Body:       string(noteBytes),
-	}
-
-	return resp, nil
+	return secNote, nil
 }
 
 func comparePasswords(hashedPwd string, plainPwd []byte) (bool, error) {
