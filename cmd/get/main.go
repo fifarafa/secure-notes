@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -66,62 +67,33 @@ func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 
 	item, err := dbCli.GetItemRequest(&input).Send(ctx)
 	if err != nil {
-		log.Print(err)
-		return web.Response{
-			StatusCode: http.StatusInternalServerError,
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-		}, nil
+		return web.InternalServerError(), fmt.Errorf("get item from db: %w", err)
 	}
 
 	if notFound := len(item.Item) == 0; notFound {
-		log.Print("empty item")
 		return web.Response{
 			StatusCode: http.StatusNotFound,
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-		}, nil
+		}, fmt.Errorf("note not found in db")
 	}
 
 	var secureNote secureNote
 	if err := dynamodbattribute.UnmarshalMap(item.Item, &secureNote); err != nil {
 		log.Print(err)
-		return web.Response{
-			StatusCode: http.StatusInternalServerError,
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-		}, err
+		return web.InternalServerError(), fmt.Errorf("unmarshal note from db map: %w", err)
 	}
 
-	//TODO validate
+	//TODO validate if exists
 	plainPwd := req.Headers["note-secret"]
 
 	ok, err := comparePasswords(secureNote.Hash, []byte(plainPwd))
 	if err != nil {
-		log.Print(err)
-		return web.Response{
-			StatusCode: http.StatusInternalServerError,
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-		}, err
+		return web.InternalServerError(), fmt.Errorf("compare password with salted hash: %w", err)
 	}
 
 	if !ok {
 		return web.Response{
 			StatusCode: http.StatusUnauthorized,
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-		}, err
+		}, fmt.Errorf("wrong password")
 	}
 
 	n := note{
@@ -130,25 +102,14 @@ func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 		TTL:  secureNote.TTL,
 	}
 
-	data, err := json.Marshal(n)
+	noteBytes, err := json.Marshal(n)
 	if err != nil {
-		log.Print(err)
-		return web.Response{
-			StatusCode: http.StatusInternalServerError,
-			Headers: map[string]string{
-				"Access-Control-Allow-Origin":      "*",
-				"Access-Control-Allow-Credentials": "true",
-			},
-		}, nil
+		return web.InternalServerError(), fmt.Errorf("json marshal response: %w", err)
 	}
 
 	resp := web.Response{
 		StatusCode: http.StatusOK,
-		Body:       string(data),
-		Headers: map[string]string{
-			"Access-Control-Allow-Origin":      "*",
-			"Access-Control-Allow-Credentials": "true",
-		},
+		Body:       string(noteBytes),
 	}
 
 	return resp, nil
