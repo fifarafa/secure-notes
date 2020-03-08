@@ -3,19 +3,20 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbattribute"
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var dbCli *dynamodb.Client
@@ -67,7 +68,18 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 		}, nil
 	}
 
-	securedNote := newSecureNote(n)
+	securedNote, err := newSecureNote(n)
+	if err != nil {
+		log.Print(err)
+		return Response{
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
+			StatusCode: http.StatusInternalServerError,
+		}, nil
+	}
+
 	item, err := dynamodbattribute.MarshalMap(securedNote)
 	if err != nil {
 		log.Print(err)
@@ -122,25 +134,29 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	return resp, nil
 }
 
-func newSecureNote(n note) secureNote {
+func newSecureNote(n note) (*secureNote, error) {
 	now := time.Now().UTC()
 	ttl := now.Add(time.Duration(n.LifeTimeSeconds) * time.Second).Unix()
+	saltedHash, err := generateHashWithSalt([]byte(n.Password))
+	if err != nil {
+		return nil, fmt.Errorf("generate hash with salt: %w", err)
+	}
 
-	return secureNote{
+	return &secureNote{
 		ID:   uuid.New().String(),
 		Text: n.Text,
-		Hash: hashAndSalt([]byte(n.Password)),
+		Hash: saltedHash,
 		TTL:  ttl,
-	}
+	}, nil
 }
 
-func hashAndSalt(pwd []byte) string {
+func generateHashWithSalt(pwd []byte) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.MinCost)
 	if err != nil {
-		log.Println(err)
+		return "", errors.New("bcrypt generate from password")
 	}
 
-	return string(hash)
+	return string(hash), nil
 }
 
 func main() {

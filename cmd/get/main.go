@@ -3,17 +3,17 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbattribute"
 	"golang.org/x/crypto/bcrypt"
-
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
 )
 
 var dbCli *dynamodb.Client
@@ -93,7 +93,19 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	//TODO validate
 	plainPwd := req.Headers["note-secret"]
 
-	if ok := comparePasswords(secureNote.Hash, []byte(plainPwd)); !ok {
+	ok, err := comparePasswords(secureNote.Hash, []byte(plainPwd))
+	if err != nil {
+		log.Print(err)
+		return Response{
+			StatusCode: http.StatusInternalServerError,
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":      "*",
+				"Access-Control-Allow-Credentials": "true",
+			},
+		}, err
+	}
+
+	if !ok {
 		return Response{
 			StatusCode: http.StatusUnauthorized,
 			Headers: map[string]string{
@@ -133,15 +145,14 @@ func Handler(ctx context.Context, req Request) (Response, error) {
 	return resp, nil
 }
 
-func comparePasswords(hashedPwd string, plainPwd []byte) bool {
+func comparePasswords(hashedPwd string, plainPwd []byte) (bool, error) {
 	byteHash := []byte(hashedPwd)
 	err := bcrypt.CompareHashAndPassword(byteHash, plainPwd)
 	if err != nil {
-		log.Println(err)
-		return false
+		return false, errors.New("bcrypt compare hash with password")
 	}
 
-	return true
+	return true, nil
 }
 
 func main() {
