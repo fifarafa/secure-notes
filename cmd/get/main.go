@@ -94,25 +94,6 @@ func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 	return resp, nil
 }
 
-func createResponse(secNote secureNote, err error) (web.Response, error) {
-	n := note{
-		ID:   secNote.ID,
-		Text: secNote.Text,
-		TTL:  secNote.TTL,
-	}
-
-	noteBytes, err := json.Marshal(n)
-	if err != nil {
-		return web.Response{}, fmt.Errorf("json marshal response: %w", err)
-	}
-
-	resp := web.Response{
-		StatusCode: http.StatusOK,
-		Body:       string(noteBytes),
-	}
-	return resp, nil
-}
-
 func get(ctx context.Context, dbCli *dynamodb.Client, noteID string) (secureNote, error) {
 	input := dynamodb.GetItemInput{
 		Key: map[string]dynamodb.AttributeValue{
@@ -138,6 +119,25 @@ func get(ctx context.Context, dbCli *dynamodb.Client, noteID string) (secureNote
 	}
 
 	return secNote, nil
+}
+
+func createResponse(secNote secureNote, err error) (web.Response, error) {
+	n := note{
+		ID:   secNote.ID,
+		Text: secNote.Text,
+		TTL:  secNote.TTL,
+	}
+
+	noteBytes, err := json.Marshal(n)
+	if err != nil {
+		return web.Response{}, fmt.Errorf("json marshal response: %w", err)
+	}
+
+	resp := web.Response{
+		StatusCode: http.StatusOK,
+		Body:       string(noteBytes),
+	}
+	return resp, nil
 }
 
 func delete(noteID string, ctx context.Context) error {
