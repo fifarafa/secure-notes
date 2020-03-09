@@ -14,6 +14,7 @@ provider:
         - dynamodb:Query
         - dynamodb:GetItem
         - dynamodb:PutItem
+        - dynamodb:DeleteItem
       Resource: !GetAtt NotesTable.Arn
 
 package:

@@ -26,20 +26,20 @@ var (
 )
 
 //TODO create human friendly urls
-//TODO create page if note expired???
-//TODO destroy note tick after first read IDEA
 
 type note struct {
 	Text            string `json:"text"`
 	Password        string `json:"password"`
 	LifeTimeSeconds int64  `json:"lifeTimeSeconds"`
+	OneTimeRead     bool   `json:"oneTimeRead"`
 }
 
 type secureNote struct {
-	ID   string `dynamodbav:"pk"`
-	Text string `dynamodbav:"text"`
-	Hash string `dynamodbav:"hash"`
-	TTL  int64  `dynamodbav:"ttl"`
+	ID          string `dynamodbav:"pk"`
+	Text        string `dynamodbav:"text"`
+	Hash        string `dynamodbav:"hash"`
+	TTL         int64  `dynamodbav:"ttl"`
+	OneTimeRead bool   `dynamodbav:"oneTimeRead"`
 }
 
 func init() {
@@ -111,10 +111,11 @@ func newSecureNote(n note) (secureNote, error) {
 	}
 
 	return secureNote{
-		ID:   uuid.New().String(),
-		Text: n.Text,
-		Hash: saltedHash,
-		TTL:  ttl,
+		ID:          uuid.New().String(),
+		Text:        n.Text,
+		Hash:        saltedHash,
+		TTL:         ttl,
+		OneTimeRead: n.OneTimeRead,
 	}, nil
 }
 

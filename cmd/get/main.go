@@ -29,10 +29,11 @@ type note struct {
 }
 
 type secureNote struct {
-	ID   string `dynamodbav:"pk"`
-	Text string `dynamodbav:"text"`
-	Hash string `dynamodbav:"hash"`
-	TTL  int64  `dynamodbav:"ttl"`
+	ID          string `dynamodbav:"pk"`
+	Text        string `dynamodbav:"text"`
+	Hash        string `dynamodbav:"hash"`
+	TTL         int64  `dynamodbav:"ttl"`
+	OneTimeRead bool   `dynamodbav:"oneTimeRead"`
 }
 
 var (
@@ -84,6 +85,12 @@ func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 		return web.InternalServerError(), fmt.Errorf("create response: %w", err)
 	}
 
+	if secNote.OneTimeRead {
+		if err := delete(noteID, ctx); err != nil {
+			return web.InternalServerError(), fmt.Errorf("delete note: %w", err)
+		}
+	}
+
 	return resp, nil
 }
 
@@ -131,6 +138,21 @@ func get(ctx context.Context, dbCli *dynamodb.Client, noteID string) (secureNote
 	}
 
 	return secNote, nil
+}
+
+func delete(noteID string, ctx context.Context) error {
+	input := dynamodb.DeleteItemInput{
+		Key: map[string]dynamodb.AttributeValue{
+			"pk": {
+				S: aws.String(noteID),
+			},
+		},
+		TableName: aws.String("notes"),
+	}
+	if _, err := dbCli.DeleteItemRequest(&input).Send(ctx); err != nil {
+		return fmt.Errorf("delete note from db: %w", err)
+	}
+	return nil
 }
 
 func comparePasswords(hashedPwd string, plainPwd []byte) bool {
