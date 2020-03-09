@@ -25,7 +25,8 @@ var (
 	middleware *web.Middleware
 )
 
-//TODO create human friendly urls
+//TODO create human friendly, easy to remember urls
+//TODO define alarms and dashboard for API Gateway
 
 type note struct {
 	Text            string `json:"text"`
