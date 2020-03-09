@@ -14,8 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbattribute"
-	"github.com/google/uuid"
 	"github.com/repos/secure-notes/internal/web"
+	"github.com/speps/go-hashids"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -25,7 +25,7 @@ var (
 	middleware *web.Middleware
 )
 
-//TODO create human friendly, easy to remember urls
+//TODO get from env vars table name
 //TODO define alarms and dashboard for API Gateway
 
 type note struct {
@@ -68,12 +68,12 @@ func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 		}, err
 	}
 
-	secNote, err := newSecureNote(n)
+	secNote, err := newSecureNote(ctx, dbCli, n)
 	if err != nil {
 		return web.InternalServerError(), fmt.Errorf("new secure note: %w", err)
 	}
 
-	if err := save(ctx, secNote); err != nil {
+	if err := save(ctx, dbCli, secNote); err != nil {
 		return web.InternalServerError(), fmt.Errorf("save secured note: %w", err)
 	}
 
@@ -85,7 +85,7 @@ func Handler(ctx context.Context, req web.Request) (web.Response, error) {
 	return resp, nil
 }
 
-func save(ctx context.Context, sn secureNote) error {
+func save(ctx context.Context, dbCli *dynamodb.Client, sn secureNote) error {
 	item, err := dynamodbattribute.MarshalMap(sn)
 	if err != nil {
 		return fmt.Errorf("marshal note to db map: %w", err)
@@ -103,7 +103,7 @@ func save(ctx context.Context, sn secureNote) error {
 	return nil
 }
 
-func newSecureNote(n note) (secureNote, error) {
+func newSecureNote(ctx context.Context, dbCli *dynamodb.Client, n note) (secureNote, error) {
 	now := time.Now().UTC()
 	ttl := now.Add(time.Duration(n.LifeTimeSeconds) * time.Second).Unix()
 	saltedHash, err := generateHashWithSalt([]byte(n.Password))
@@ -111,13 +111,61 @@ func newSecureNote(n note) (secureNote, error) {
 		return secureNote{}, fmt.Errorf("generate hash with salt: %w", err)
 	}
 
+	incr, err := getNoteCounter(ctx, dbCli)
+	if err != nil {
+		return secureNote{}, fmt.Errorf("get note counter: %w", err)
+	}
+	id := generateHumanFriendlyID(incr)
+
 	return secureNote{
-		ID:          uuid.New().String(),
+		ID:          id,
 		Text:        n.Text,
 		Hash:        saltedHash,
 		TTL:         ttl,
 		OneTimeRead: n.OneTimeRead,
 	}, nil
+}
+
+func getNoteCounter(ctx context.Context, dbCli *dynamodb.Client) (int, error) {
+	input := dynamodb.UpdateItemInput{
+		ExpressionAttributeNames: map[string]string{
+			"#counter": "counter",
+		},
+		ExpressionAttributeValues: map[string]dynamodb.AttributeValue{
+			":n": {
+				N: aws.String("1"),
+			},
+		},
+		Key: map[string]dynamodb.AttributeValue{
+			"pk": {
+				S: aws.String("__id"),
+			},
+		},
+		ReturnValues:     "UPDATED_NEW",
+		TableName:        aws.String("notes"),
+		UpdateExpression: aws.String("add #counter :n"),
+	}
+	resp, err := dbCli.UpdateItemRequest(&input).Send(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("update note counter: %w", err)
+	}
+	type counter struct {
+		Counter int `dynamodbav:"counter"`
+	}
+	var c counter
+	if err := dynamodbattribute.UnmarshalMap(resp.UpdateItemOutput.Attributes, &c); err != nil {
+		return 0, fmt.Errorf("unmarshal counter from db map: %w", err)
+	}
+	return c.Counter, nil
+}
+
+func generateHumanFriendlyID(noteCounter int) string {
+	hd := hashids.NewData()
+	hd.Salt = "salt for secure notes app"
+	hd.MinLength = 5
+	h, _ := hashids.NewWithData(hd)
+	e, _ := h.Encode([]int{noteCounter})
+	return e
 }
 
 func createResponse(noteID string) (web.Response, error) {
