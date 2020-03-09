@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -21,8 +22,9 @@ import (
 )
 
 var (
-	dbCli      *dynamodb.Client
-	middleware *web.Middleware
+	dbCli          *dynamodb.Client
+	middleware     *web.Middleware
+	notesTableName string
 )
 
 //TODO get from env vars table name
@@ -50,6 +52,7 @@ func init() {
 	}
 
 	dbCli = dynamodb.New(cfg)
+	notesTableName = os.Getenv("NOTES_TABLE")
 
 	logger, err := zap.NewProductionConfig().Build()
 	if err != nil {
@@ -93,7 +96,7 @@ func save(ctx context.Context, dbCli *dynamodb.Client, sn secureNote) error {
 
 	input := dynamodb.PutItemInput{
 		Item:      item,
-		TableName: aws.String("notes"),
+		TableName: aws.String(notesTableName),
 	}
 	if _, err := dbCli.PutItemRequest(&input).Send(ctx); err != nil {
 		log.Print(err)
@@ -142,7 +145,7 @@ func getNoteCounter(ctx context.Context, dbCli *dynamodb.Client) (int, error) {
 			},
 		},
 		ReturnValues:     "UPDATED_NEW",
-		TableName:        aws.String("notes"),
+		TableName:        aws.String(notesTableName),
 		UpdateExpression: aws.String("add #counter :n"),
 	}
 	resp, err := dbCli.UpdateItemRequest(&input).Send(ctx)

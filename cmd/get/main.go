@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -18,8 +19,9 @@ import (
 )
 
 var (
-	dbCli      *dynamodb.Client
-	middleware *web.Middleware
+	dbCli          *dynamodb.Client
+	middleware     *web.Middleware
+	notesTableName string
 )
 
 type note struct {
@@ -47,6 +49,7 @@ func init() {
 	}
 
 	dbCli = dynamodb.New(cfg)
+	notesTableName = os.Getenv("NOTES_TABLE")
 
 	logger, err := zap.NewProductionConfig().Build()
 	if err != nil {
@@ -101,7 +104,7 @@ func get(ctx context.Context, dbCli *dynamodb.Client, noteID string) (secureNote
 				S: aws.String(noteID),
 			},
 		},
-		TableName: aws.String("notes"),
+		TableName: aws.String(notesTableName),
 	}
 
 	item, err := dbCli.GetItemRequest(&input).Send(ctx)
@@ -147,7 +150,7 @@ func delete(noteID string, ctx context.Context) error {
 				S: aws.String(noteID),
 			},
 		},
-		TableName: aws.String("notes"),
+		TableName: aws.String(notesTableName),
 	}
 	if _, err := dbCli.DeleteItemRequest(&input).Send(ctx); err != nil {
 		return fmt.Errorf("delete note from db: %w", err)
