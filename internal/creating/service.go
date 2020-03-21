@@ -15,13 +15,14 @@ type Service struct {
 	repository
 }
 
-func NewService(repository repository) *Service {
-	return &Service{repository: repository}
-}
-
 type repository interface {
 	CreateNote(context.Context, SecureNote) error
 	IncrementNoteCounter(context.Context) (int, error)
+}
+
+// NewService provides creating note service
+func NewService(repository repository) *Service {
+	return &Service{repository: repository}
 }
 
 // CreateNote creates secure note in storage
