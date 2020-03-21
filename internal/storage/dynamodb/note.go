@@ -1,3 +1,5 @@
+package dynamodb
+
 // Note defines properties of a secured note that is persisted in storage
 type Note struct {
 	ID          string `dynamodbav:"pk"`

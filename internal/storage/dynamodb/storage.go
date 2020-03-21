@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbattribute"
+	"github.com/projects/secure-notes/internal/creating"
 )
 
 type Storage struct {
@@ -15,17 +16,32 @@ type Storage struct {
 	TableName string
 }
 
-func (s *Storage) Save(ctx context.Context, sn secureNote) error {
-	item, err := dynamodbattribute.MarshalMap(sn)
+func NewStorage(dbCli *dynamodb.Client, tableName string) *Storage {
+	return &Storage{
+		DbCli:     dbCli,
+		TableName: tableName,
+	}
+}
+
+func (s *Storage) CreateNote(ctx context.Context, sn creating.SecureNote) error {
+	newNote := Note{
+		ID:          sn.ID,
+		Text:        sn.Text,
+		Hash:        sn.Hash,
+		TTL:         sn.TTL,
+		OneTimeRead: sn.OneTimeRead,
+	}
+
+	item, err := dynamodbattribute.MarshalMap(newNote)
 	if err != nil {
 		return fmt.Errorf("marshal note to db map: %w", err)
 	}
 
 	input := dynamodb.PutItemInput{
 		Item:      item,
-		TableName: aws.String(notesTableName),
+		TableName: aws.String(s.TableName),
 	}
-	if _, err := dbCli.PutItemRequest(&input).Send(ctx); err != nil {
+	if _, err := s.DbCli.PutItemRequest(&input).Send(ctx); err != nil {
 		log.Print(err)
 		return fmt.Errorf("put item in db: %w", err)
 	}
@@ -49,7 +65,7 @@ func (s *Storage) IncrementNoteCounter(ctx context.Context) (int, error) {
 			},
 		},
 		ReturnValues:     "UPDATED_NEW",
-		TableName:        aws.String(notesTableName),
+		TableName:        aws.String(s.TableName),
 		UpdateExpression: aws.String("add #counter :n"),
 	}
 

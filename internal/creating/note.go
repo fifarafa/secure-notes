@@ -8,7 +8,7 @@ type Note struct {
 	OneTimeRead     bool   `json:"oneTimeRead"`
 }
 
-// SecureNote define properties of a note after encryption
+// SecureNote define properties of a note after securing it
 type SecureNote struct {
 	ID          string `dynamodbav:"pk"`
 	Text        string `dynamodbav:"text"`
