@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbattribute"
 	"github.com/projects/secure-notes/internal/creating"
+	"github.com/projects/secure-notes/internal/getting"
 )
 
 type Storage struct {
@@ -83,4 +84,55 @@ func (s *Storage) IncrementNoteCounter(ctx context.Context) (int, error) {
 	}
 
 	return c.Counter, nil
+}
+
+func (s *Storage) GetNote(ctx context.Context, noteID string) (getting.SecureNote, error) {
+	input := dynamodb.GetItemInput{
+		Key: map[string]dynamodb.AttributeValue{
+			"pk": {
+				S: aws.String(noteID),
+			},
+		},
+		TableName: aws.String(s.TableName),
+	}
+
+	item, err := s.DbCli.GetItemRequest(&input).Send(ctx)
+	if err != nil {
+		return getting.SecureNote{}, fmt.Errorf("get item from db: %w", err)
+	}
+
+	if notFound := len(item.Item) == 0; notFound {
+		return getting.SecureNote{}, getting.ErrNotFound
+	}
+
+	var n Note
+	if err := dynamodbattribute.UnmarshalMap(item.Item, &n); err != nil {
+		return getting.SecureNote{}, fmt.Errorf("unmarshal note from db map: %w", err)
+	}
+
+	note := getting.SecureNote{
+		ID:          n.ID,
+		Text:        n.Text,
+		Hash:        n.Hash,
+		TTL:         n.TTL,
+		OneTimeRead: n.OneTimeRead,
+	}
+
+	return note, nil
+}
+
+func (s *Storage) DeleteNote(ctx context.Context, noteID string) error {
+	input := dynamodb.DeleteItemInput{
+		Key: map[string]dynamodb.AttributeValue{
+			"pk": {
+				S: aws.String(noteID),
+			},
+		},
+		TableName: aws.String(s.TableName),
+	}
+	if _, err := s.DbCli.DeleteItemRequest(&input).Send(ctx); err != nil {
+		return fmt.Errorf("delete note from db: %w", err)
+	}
+
+	return nil
 }

@@ -51,7 +51,7 @@ func (s *Service) CreateNote(ctx context.Context, plain Note) (noteID string, er
 	}
 
 	if err := s.repository.CreateNote(ctx, securedNote); err != nil {
-		return "", fmt.Errorf("storage create secured note: %w", err)
+		return "", fmt.Errorf("repository create secured note: %w", err)
 	}
 
 	return "", nil
