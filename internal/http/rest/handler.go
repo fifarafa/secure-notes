@@ -36,11 +36,11 @@ func CreateNote(s *creating.Service) web.Handler {
 }
 
 func createNoteResponse(noteID string) (web.Response, error) {
-	type ResponseId struct {
+	type Response struct {
 		ID string `json:"id"`
 	}
 
-	responseBytes, err := json.Marshal(&ResponseId{ID: noteID})
+	responseBytes, err := json.Marshal(&Response{ID: noteID})
 	if err != nil {
 		return web.Response{}, fmt.Errorf("json marshal response: %w", err)
 	}

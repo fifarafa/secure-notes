@@ -35,7 +35,7 @@ func (s *Service) CreateNote(ctx context.Context, plain Note) (noteID string, er
 		return "", fmt.Errorf("generate hash with salt: %w", err)
 	}
 
-	counter, err := s.IncrementNoteCounter(ctx)
+	counter, err := s.repository.IncrementNoteCounter(ctx)
 	if err != nil {
 		return "", fmt.Errorf("increment note counter: %w", err)
 	}
