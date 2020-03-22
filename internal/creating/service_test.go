@@ -48,7 +48,7 @@ func TestService_CreateNoteOK(t *testing.T) {
 	assert.Equal(t, "qx2rx", gotNoteID)
 }
 
-func TestService_CreateNote(t *testing.T) {
+func TestService_CreateNoteDatabaseError(t *testing.T) {
 	// given
 	createNote := creating.Note{
 		Text:            "Hello World",
@@ -75,11 +75,12 @@ func TestService_CreateNote(t *testing.T) {
 		return "$2a$04$tD4EmWTb6FficqPruQNzL.t4X79mud7a3ybAp6JYgf7fItsw3pRoC", nil
 	}
 
-	// when
 	s := creating.NewService(&repository, timer, hashGen)
 
-	// then
+	// when
 	gotNoteID, gotErr := s.CreateNote(context.TODO(), createNote)
+
+	// then
 
 	assert.EqualError(t, gotErr, "repository create secured note: some error from database")
 	assert.Equal(t, "", gotNoteID)

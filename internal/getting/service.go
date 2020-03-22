@@ -17,7 +17,7 @@ var (
 )
 
 type Service struct {
-	repository
+	repo repository
 }
 
 type repository interface {
@@ -26,11 +26,11 @@ type repository interface {
 }
 
 func NewService(repository repository) *Service {
-	return &Service{repository: repository}
+	return &Service{repo: repository}
 }
 
-func (s *Service) Get(ctx context.Context, noteID, password string) (Note, error) {
-	secureNote, err := s.repository.GetNote(ctx, noteID)
+func (s *Service) GetNote(ctx context.Context, noteID, password string) (Note, error) {
+	secureNote, err := s.repo.GetNote(ctx, noteID)
 	if err != nil {
 		return Note{}, fmt.Errorf("repository get note: %w", err)
 	}
@@ -41,7 +41,7 @@ func (s *Service) Get(ctx context.Context, noteID, password string) (Note, error
 	}
 
 	if secureNote.OneTimeRead {
-		if err := s.repository.DeleteNote(ctx, secureNote.ID); err != nil {
+		if err := s.repo.DeleteNote(ctx, secureNote.ID); err != nil {
 			return Note{}, fmt.Errorf("delete note: %w", err)
 		}
 	}

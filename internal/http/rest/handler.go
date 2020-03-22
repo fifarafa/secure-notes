@@ -58,7 +58,7 @@ func GetNote(s *getting.Service) web.Handler {
 		noteID := req.PathParameters["id"]
 		plainPwd := req.Headers["password"]
 
-		note, err := s.Get(ctx, noteID, plainPwd)
+		note, err := s.GetNote(ctx, noteID, plainPwd)
 		if err != nil {
 			switch err {
 
