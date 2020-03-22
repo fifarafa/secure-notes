@@ -11,8 +11,12 @@ import (
 	"github.com/projects/secure-notes/internal/web"
 )
 
+type NoteCreator interface {
+	CreateNote(ctx context.Context, plain creating.Note) (noteID string, err error)
+}
+
 // CreateNote returns a handler for /POST note request
-func CreateNote(s *creating.Service) web.Handler {
+func CreateNote(nc NoteCreator) web.Handler {
 	return func(ctx context.Context, req web.Request) (web.Response, error) {
 		var newNote creating.Note
 		if err := json.Unmarshal([]byte(req.Body), &newNote); err != nil {
@@ -21,9 +25,9 @@ func CreateNote(s *creating.Service) web.Handler {
 			}, err
 		}
 
-		noteID, err := s.CreateNote(ctx, newNote)
+		noteID, err := nc.CreateNote(ctx, newNote)
 		if err != nil {
-			return web.InternalServerError(), fmt.Errorf("create response: %w", err)
+			return web.InternalServerError(), fmt.Errorf("create note: %w", err)
 		}
 
 		resp, err := createNoteResponse(noteID)
