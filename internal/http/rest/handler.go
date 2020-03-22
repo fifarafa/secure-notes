@@ -11,12 +11,16 @@ import (
 	"github.com/projects/secure-notes/internal/web"
 )
 
-type NoteCreator interface {
+type noteCreator interface {
 	CreateNote(ctx context.Context, plain creating.Note) (noteID string, err error)
 }
 
+type noteGetter interface {
+	GetNote(ctx context.Context, noteID, password string) (note getting.Note, err error)
+}
+
 // CreateNote returns a handler for /POST note request
-func CreateNote(nc NoteCreator) web.Handler {
+func CreateNote(nc noteCreator) web.Handler {
 	return func(ctx context.Context, req web.Request) (web.Response, error) {
 		var newNote creating.Note
 		if err := json.Unmarshal([]byte(req.Body), &newNote); err != nil {
@@ -57,12 +61,12 @@ func createNoteResponse(noteID string) (web.Response, error) {
 }
 
 // GetNote returns a handler for /GET note request
-func GetNote(s *getting.Service) web.Handler {
+func GetNote(ng noteGetter) web.Handler {
 	return func(ctx context.Context, req web.Request) (web.Response, error) {
 		noteID := req.PathParameters["id"]
 		plainPwd := req.Headers["password"]
 
-		note, err := s.GetNote(ctx, noteID, plainPwd)
+		note, err := ng.GetNote(ctx, noteID, plainPwd)
 		if err != nil {
 			switch err {
 
