@@ -15,10 +15,6 @@ type noteCreator interface {
 	CreateNote(ctx context.Context, plain creating.Note) (noteID string, err error)
 }
 
-type noteGetter interface {
-	GetNote(ctx context.Context, noteID, password string) (note getting.Note, err error)
-}
-
 // CreateNote returns a handler for /POST note request
 func CreateNote(nc noteCreator) web.Handler {
 	return func(ctx context.Context, req web.Request) (web.Response, error) {
@@ -58,6 +54,10 @@ func createNoteResponse(noteID string) (web.Response, error) {
 		Body:       string(responseBytes),
 	}
 	return resp, nil
+}
+
+type noteGetter interface {
+	GetNote(ctx context.Context, noteID, password string) (note getting.Note, err error)
 }
 
 // GetNote returns a handler for /GET note request
