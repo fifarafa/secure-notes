@@ -8,7 +8,7 @@ import (
 
 	"github.com/projects/secure-notes/internal/creating"
 	"github.com/projects/secure-notes/internal/http/rest"
-	"github.com/projects/secure-notes/internal/web"
+	"github.com/projects/secure-notes/internal/platform/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

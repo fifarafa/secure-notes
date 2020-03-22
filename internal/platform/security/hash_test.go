@@ -3,7 +3,7 @@ package security_test
 import (
 	"testing"
 
-	"github.com/projects/secure-notes/internal/security"
+	"github.com/projects/secure-notes/internal/platform/security"
 	"github.com/stretchr/testify/assert"
 )
 

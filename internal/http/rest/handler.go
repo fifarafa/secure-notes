@@ -8,7 +8,7 @@ import (
 
 	"github.com/projects/secure-notes/internal/creating"
 	"github.com/projects/secure-notes/internal/getting"
-	"github.com/projects/secure-notes/internal/web"
+	"github.com/projects/secure-notes/internal/platform/web"
 )
 
 type noteCreator interface {

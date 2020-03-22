@@ -9,9 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/projects/secure-notes/internal/creating"
 	"github.com/projects/secure-notes/internal/http/rest"
-	"github.com/projects/secure-notes/internal/security"
+	"github.com/projects/secure-notes/internal/platform/security"
+	"github.com/projects/secure-notes/internal/platform/web"
 	db "github.com/projects/secure-notes/internal/storage/dynamodb"
-	"github.com/projects/secure-notes/internal/web"
 	"go.uber.org/zap"
 )
 
