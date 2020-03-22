@@ -1,7 +1,8 @@
 # secure-notes
-+ Create your notes protected by password
-+ Get your note only with valid password
++ Create your notes protected by password.
++ Get your note only with valid password.
 + Notes are self-destructing. One-time read or selected period.
++ Easy to remember and share URLs.
 
 ## High level architecture
 
