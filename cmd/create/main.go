@@ -2,12 +2,14 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/projects/secure-notes/internal/creating"
 	"github.com/projects/secure-notes/internal/http/rest"
+	"github.com/projects/secure-notes/internal/security"
 	db "github.com/projects/secure-notes/internal/storage/dynamodb"
 	"github.com/projects/secure-notes/internal/web"
 	"go.uber.org/zap"
@@ -28,7 +30,9 @@ func init() {
 	storage := db.NewStorage(dbCli, notesTableName)
 
 	// setup domain service
-	creator := creating.NewService(storage)
+	now := func() time.Time { return time.Now().UTC() }
+	hashGen := security.GenerateHashWithSalt
+	creator := creating.NewService(storage, now, hashGen)
 
 	// setup API Gateway adapter
 	handler := rest.CreateNote(creator)

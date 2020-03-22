@@ -2,17 +2,17 @@ package creating
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/speps/go-hashids"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Service provides note creating operation
 type Service struct {
-	repository
+	repo            repository
+	now             func() time.Time
+	genHashWithSalt func(password string) (string, error)
 }
 
 type repository interface {
@@ -21,21 +21,20 @@ type repository interface {
 }
 
 // NewService provides creating note service
-func NewService(repository repository) *Service {
-	return &Service{repository: repository}
+func NewService(r repository, now func() time.Time, genHashWithSalt func(password string) (string, error)) *Service {
+	return &Service{repo: r, now: now, genHashWithSalt: genHashWithSalt}
 }
 
 // CreateNote creates secure note in storage
 func (s *Service) CreateNote(ctx context.Context, plain Note) (noteID string, err error) {
-	now := time.Now().UTC()
-	noteTTL := now.Add(time.Duration(plain.LifeTimeSeconds) * time.Second).Unix()
+	noteTTL := s.now().Add(time.Duration(plain.LifeTimeSeconds) * time.Second).Unix()
 
-	saltedHash, err := generateHashWithSalt([]byte(plain.Password))
+	saltedHash, err := s.genHashWithSalt(plain.Password)
 	if err != nil {
 		return "", fmt.Errorf("generate hash with salt: %w", err)
 	}
 
-	counter, err := s.repository.IncrementNoteCounter(ctx)
+	counter, err := s.repo.IncrementNoteCounter(ctx)
 	if err != nil {
 		return "", fmt.Errorf("increment note counter: %w", err)
 	}
@@ -50,20 +49,11 @@ func (s *Service) CreateNote(ctx context.Context, plain Note) (noteID string, er
 		OneTimeRead: plain.OneTimeRead,
 	}
 
-	if err := s.repository.CreateNote(ctx, securedNote); err != nil {
+	if err := s.repo.CreateNote(ctx, securedNote); err != nil {
 		return "", fmt.Errorf("repository create secured note: %w", err)
 	}
 
-	return "", nil
-}
-
-func generateHashWithSalt(pwd []byte) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.MinCost)
-	if err != nil {
-		return "", errors.New("bcrypt generate from password")
-	}
-
-	return string(hash), nil
+	return securedNote.ID, nil
 }
 
 func generateHumanFriendlyID(noteCounter int) string {
