@@ -1,4 +1,4 @@
-module github.com/repos/secure-notes
+module github.com/projects/secure-notes
 
 require (
 	github.com/aws/aws-lambda-go v1.6.0
@@ -11,4 +11,4 @@ require (
 	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
 )
 
-go 1.13
+go 1.14
